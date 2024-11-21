@@ -1,0 +1,25 @@
+/* General site-wide styles */
+.container {
+    max-width: 600px;
+    margin: 50px auto;
+}
+#messagesList {
+    max-height: 400px;
+    overflow-y: auto;
+}
+#typingIndicator {
+    font-style: italic;
+    color: #6c757d;
+    margin-top: 10px;
+}
+
+/* Optional: Add a simple animation */
+@keyframes typingIndicator {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+#typingIndicator {
+    animation: typingIndicator 2s infinite;
+}
