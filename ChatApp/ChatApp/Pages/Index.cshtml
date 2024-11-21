@@ -1,0 +1,153 @@
+﻿@page
+@model ChatApp.Pages.IndexModel
+@{
+    ViewData["Title"] = "Home page";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>@ViewData["Title"] - ChatApp</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Bootstrap CSS (optional for styling) -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet" />
+
+    <!-- Toastr CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" rel="stylesheet" />
+
+    <style>
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+        }
+        #messagesList {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Chat Application</h2>
+        <div class="form-group">
+            <input type="text" id="userInput" class="form-control" placeholder="Your name" />
+        </div>
+        <div class="form-group">
+            <input type="text" id="messageInput" class="form-control" placeholder="Enter message" />
+        </div>
+        <button class="btn btn-primary" id="sendButton" onclick="sendMessage()" disabled>Send</button>
+
+        <ul id="messagesList" class="list-group mt-3"></ul>
+    </div>
+
+    <!-- jQuery (required by Toastr) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
+    <!-- SignalR JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js" integrity="sha512-..." crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <!-- Toastr JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+
+    <!-- Bootstrap JS (optional for styling) -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <script type="text/javascript">
+        "use strict";
+
+        // Toastr configuration
+        toastr.options = {
+            "closeButton": true,
+            "debug": false,
+            "newestOnTop": false,
+            "progressBar": true,
+            "positionClass": "toast-top-right",
+            "preventDuplicates": false,
+            "onclick": null,
+            "showDuration": "300",
+            "hideDuration": "1000",
+            "timeOut": "5000",
+            "extendedTimeOut": "1000",
+            "showEasing": "swing",
+            "hideEasing": "linear",
+            "showMethod": "fadeIn",
+            "hideMethod": "fadeOut"
+        }
+
+        // Initialize connection
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/chathub")
+            .build();
+
+        // Disable the send button until connection is established
+        document.getElementById("sendButton").disabled = true;
+
+        // Receive messages from the server
+        connection.on("ReceiveMessage", function (user, message) {
+            const li = document.createElement("li");
+            li.textContent = `${user}: ${message}`;
+            li.className = "list-group-item";
+            document.getElementById("messagesList").appendChild(li);
+
+            // Show a toast notification for the new message
+            toastr.info(`New message from ${user}: ${message}`);
+        });
+
+        // Notify when another user is typing
+        connection.on("UserTyping", function (user) {
+            toastr.info(`${user} is typing...`, "", { "timeOut": "2000" });
+        });
+
+        // Start the connection
+        connection.start().then(function () {
+            document.getElementById("sendButton").disabled = false;
+            toastr.success("Connected to the chat server.");
+        }).catch(function (err) {
+            console.error(err.toString());
+            toastr.error("Failed to connect to the chat server.");
+        });
+
+        // Handle disconnection
+        connection.onclose(function () {
+            toastr.warning("Disconnected from the chat server.");
+        });
+
+        // Send message
+        function sendMessage() {
+            const user = document.getElementById("userInput").value.trim();
+            const message = document.getElementById("messageInput").value.trim();
+            if (user && message) {
+                connection.invoke("SendMessage", user, message).then(function () {
+                    toastr.success("Message sent successfully.");
+                }).catch(function (err) {
+                    console.error(err.toString());
+                    toastr.error("Failed to send message. Please try again.");
+                });
+                document.getElementById("messageInput").value = '';
+            } else {
+                toastr.warning("Please enter both your name and a message.");
+            }
+        }
+
+        // Detect typing in the message input
+        let typingTimeout;
+        document.getElementById("messageInput").addEventListener("keypress", function () {
+            const user = document.getElementById("userInput").value.trim();
+            if (user) {
+                connection.invoke("UserTyping", user).catch(function (err) {
+                    console.error(err.toString());
+                });
+
+                // Clear the previous timeout
+                clearTimeout(typingTimeout);
+
+                // Set a timeout to stop showing typing indicator after 2 seconds of inactivity
+                typingTimeout = setTimeout(function () {
+                    // Optionally, implement a method to notify the server that the user stopped typing
+                }, 2000);
+            }
+        });
+    </script>
+</body>
+</html>
